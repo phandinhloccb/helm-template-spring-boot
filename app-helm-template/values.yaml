@@ -42,9 +42,6 @@ readinessProbe:
   inititalDelaySeconds: 30
   periodSeconds: 10
 
-externalSecret:
-  enabled: true
-
 configmap:
   enabled: false
   data: {}
