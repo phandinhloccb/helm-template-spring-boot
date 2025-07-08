@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name}}
+  labels:
+    {{- include ".labels" . | nindent 4}}
+spect:
+  type: {{ .Values.service.type }}
+  targetPort: http
+  protocol: TCP
+  name: http
+  selectTor:
+    {{- include ".selectorLabels" . | nindent 6}}

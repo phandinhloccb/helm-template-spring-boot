@@ -1,0 +1,30 @@
+{{- range $job, $val := .Values.cronjobs }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .name }}
+spec:
+  schedule: {{ .schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: {{ .name }}
+        spec:       
+          containers:
+          - name: {{ .name }}
+            image: "{{ $.Values.image.repository }}/{{ $.Values.image.imagePrefix }}{{ $.Values.name }}:{{ $.Values.image.tag | default $.Chart.AppVersion }}"
+            imagePullPolicy: {{ $.Values.image.pullPolicy }}
+            command: 
+              {{- toYaml .command | nindent 14}}
+            envFrom:
+              - configMapRef:
+                  name: {{ $.Values.name }}-config
+              - secretRef:
+                  name: {{ $.Values.name }}
+            ports:
+            - containerPort: {{ $.Values.image.containerPort }}
+          restartPolicy: {{ .restartPolicy }}
+---
+{{- end}}

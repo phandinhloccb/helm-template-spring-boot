@@ -1,0 +1,112 @@
+{{- if .Values.deployment.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name}}
+  labels:
+    {{- include ".labels" . | nindent 4}}
+  annotations:
+    configmap.reloader.stakater.com/reload: {{ .Values.name }}-config
+    {{- if .Values.externalSecret.enabled }}
+    secret.reloader.stakater.com/reload: {{ .Values.name }}-secret
+    {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include ".selectorLabels" . | nindent 6}}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8}}
+      {{- end }}
+      labels:
+        {{- include ".selectorLabels" . | nindent 8}}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8}}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.name }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if and .Values.enviroment .Values.eksClusterName}}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerm:
+              - matchExpressions:
+                - key: eks.amazonaws.com/nodegroup
+                  operator: In
+                  values:
+                    - {{ .Values.enviroment }}-{{ .Values.eksClusterName }}-on-demand
+                    - {{ .Values.enviroment }}-{{ .Values.eksClusterName }}-spot
+      {{- end}}
+      containers:
+        - name: {{ .Values.name }}
+          image: "{{ .Values.image.repository }}/{{ .Values.name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.image.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: {{ .Values.image.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.inititalDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: {{ .Values.image.port }}
+            initialDelaySeconds: {{ .Values.readinessProbe.inititalDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          envFrom:
+            {{- if .Values.configmap.enabled }}
+            - configMapRef:
+                name: {{ .Values.name }}-config
+            {{ end -}}
+            {{- if .Values.secret.enabled }}
+            - secretRef:
+                name: {{ if .Values.secrets.name }}{{ .Values.secrets.name }}{{ else }}{{ .Values.name }}-secret{{ end }}
+            {{ end -}}
+            {{- if .Values.externalSecrets.enabled }}
+            - secretRef:
+                name: {{ .Values.name }}
+            {{ end -}}
+          {{- if .Values.volumes.configmap.enabled }}
+          volumeMounts:
+            {{ range $config := .Values.volumes.configmap.appended -}}
+            - configMap:
+                name: {{ .name }}
+              name: {{ .name }}-volume
+            {{ end -}}
+            {{- if .Values.volumes.secret.enabled }}
+            - secret:
+                secretName: {{ .Values.name }}
+              name: {{ .Values.name }}-secret-volume
+            {{ end -}}
+          {{ end -}}
+      {{- if .Values.volumes.configmap.enabled }}
+      volumes:
+        {{ range $config := .Values.volumes.configmap.appended -}}
+        - configMap:
+            name: {{ .name }}
+          name: {{ .name }}-volume
+        {{ end -}}
+        {{ if .Values.volumes.secret.enabled }}
+        - secret:
+            secretName: {{ .Values.name }}
+          name: {{ .Values.name }}-secret-volume
+        {{ end -}}
+      {{ end -}}
+{{- end }}

@@ -1,15 +1,15 @@
 {{- if .Values.autoscaling.enabled }}
-apiVersion: autoscaling/v2
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "helm-template-spring-boot.fullname" . }}
+  name: {{ .Values.name }}
   labels:
-    {{- include "helm-template-spring-boot.labels" . | nindent 4 }}
+    {{- include ".labels" . | nindent 4}}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "helm-template-spring-boot.fullname" . }}
+    name : {{ .Values.name}}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
